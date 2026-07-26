@@ -1,0 +1,154 @@
+ <!DOCTYPE html>
+ <html lang="zh-CN">
+ <head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>报销自动化系统</title>
+ <link rel="stylesheet" href="/static/styles.css">
+ </head>
+ <body>
+ <div class="app-container">
+ 
+   <header class="app-header">
+     <h1>报销自动化</h1>
+     <p>拖入发票和报销凭证，自动分类、提取信息并填写用友 BIP 报销单</p>
+   </header>
+ 
+   <!-- 步骤指示器 -->
+   <div class="step-indicators">
+     <div class="step-dot active"></div>
+     <div class="step-dot"></div>
+     <div class="step-dot"></div>
+     <div class="step-dot"></div>
+   </div>
+ 
+   <!-- === 上传区 === -->
+   <div class="card">
+     <div class="card-title">📎 选择文件</div>
+     <div class="dropzone" id="dropzone">
+       <div class="dropzone-icon">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+           <polyline points="17 8 12 3 7 8"/>
+           <line x1="12" y1="3" x2="12" y2="15"/>
+         </svg>
+       </div>
+       <div class="dropzone-text">
+         将发票或报销凭证拖拽到这里，或 <strong>点击选择</strong>
+       </div>
+       <div class="dropzone-hint">支持 PDF、JPG、PNG 格式</div>
+       <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+     </div>
+     <div class="file-list" id="file-list"></div>
+     <div class="actions">
+       <button class="btn btn-primary" id="upload-btn" disabled>
+         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <polyline points="17 1 21 5 17 9"/>
+           <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+           <polyline points="7 23 3 19 7 15"/>
+           <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+         </svg>
+         开始处理
+       </button>
+     </div>
+   </div>
+ 
+   <!-- === 进度 === -->
+   <div class="card progress-section" id="progress-section">
+     <div class="card-title">⏳ 处理进度</div>
+     <div class="progress-bar-track">
+       <div class="progress-bar-fill" id="progress-fill"></div>
+     </div>
+     <div class="progress-message" id="progress-msg">正在处理...</div>
+   </div>
+ 
+   <!-- === 确认 === -->
+   <div class="card confirm-section" id="confirm-section">
+     <div class="card-title">✅ 信息确认</div>
+     <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">
+       请核对以下提取的信息，如有误可点击修改，确认无误后点击"确认并开始填单"。
+     </p>
+ 
+     <!-- 基本信息 -->
+     <div class="data-grid">
+       <div class="data-item">
+         <label>报销事由</label>
+         <div class="value editable" id="confirm-summary" data-value="包洋报销差旅费用" onclick="editField('confirm-summary')">包洋报销差旅费用</div>
+       </div>
+       <div class="data-item">
+         <label>出差人员</label>
+         <div class="value" id="confirm-travelers">—</div>
+       </div>
+       <div class="data-item">
+         <label>目的地</label>
+         <div class="value" id="confirm-destination">—</div>
+       </div>
+       <div class="data-item">
+         <label>出差日期</label>
+         <div class="value" id="confirm-dates">—</div>
+       </div>
+       <div class="data-item">
+         <label>出差事由</label>
+         <div class="value" id="confirm-purpose">—</div>
+       </div>
+     </div>
+ 
+     <!-- 出差补助 -->
+     <div id="subsidy-section">
+       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">💰 出差补助</h4>
+       <table class="subsidy-table">
+         <thead>
+           <tr>
+             <th>姓名</th>
+             <th>天数</th>
+             <th>人数</th>
+             <th>伙食补助</th>
+             <th>交通补助</th>
+           </tr>
+         </thead>
+         <tbody id="subsidy-body"></tbody>
+         <tfoot>
+           <tr class="total-row">
+             <td colspan="3">合计</td>
+             <td id="subsidy-total-meal">¥0.00</td>
+             <td id="subsidy-total-transport">¥0.00</td>
+           </tr>
+           <tr class="total-row">
+             <td colspan="4" style="text-align:right;">补助总计</td>
+             <td id="subsidy-total-amount" style="font-size:16px;">¥0.00</td>
+           </tr>
+         </tfoot>
+       </table>
+     </div>
+ 
+     <!-- 发票清单 -->
+     <div style="margin-top:16px;">
+       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">📄 发票清单</h4>
+       <div id="invoices-container">
+         <div class="empty-state"><p>正在加载...</p></div>
+       </div>
+     </div>
+ 
+     <!-- 报销凭证 -->
+     <div style="margin-top:16px;">
+       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">📋 报销凭证</h4>
+       <div id="documents-container">
+         <div class="empty-state"><p>正在加载...</p></div>
+       </div>
+     </div>
+ 
+     <!-- 操作 -->
+     <div class="actions">
+       <button class="btn btn-success" onclick="confirmData()">
+         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+           <polyline points="20 6 9 17 4 12"/>
+         </svg>
+         确认并开始填单
+       </button>
+     </div>
+   </div>
+ 
+ </div>
+ <script src="/static/app.js"></script>
+ </body>
+ </html>
