@@ -5,11 +5,12 @@
    return name.replace(/[<>:"\/\\|?*]/g, '');
  }
  
- export function invoiceTypeFromText(text: string): string {
+export function invoiceTypeFromText(text: string): string {
+   // 退票、改签及其手续费属于“其他费用”，即使文本里同时出现飞机/高铁关键词也不能进交通费用。
+   if (/退票|改签|退改|手续费|保险|保费|refund|change|insurance/i.test(text)) return '其他发票';
    if (/飞机|航空|机票|行程|flight|air/i.test(text)) return '机票';
    if (/高铁|动车|火车|rail|train|high.?speed/i.test(text)) return '高铁票';
    if (/住宿|酒店|宾馆|旅馆|hotel|accommodation/i.test(text)) return '住宿发票';
-   if (/退票|改签|手续费|保险|refund|change/i.test(text)) return '其他发票';
    return '其他发票';
  }
  
@@ -73,14 +74,14 @@
        let newName = genInvoiceFilename(name, date, amount, invType, ext);
        let dst = path.join(targetDir, newName);
        let c = 1;
-       while (fs.existsSync(dst)) {
-         dst = path.join(targetDir, `${path.basename(newName, ext)}_${c}${ext}`);
-         c++;
-       }
-       fs.renameSync(src, dst);
-       result.invoices[invType].push({
-         original: item.filename, renamed: path.basename(dst), path: dst,
-         name, date, amount, type: invType,
+      while (fs.existsSync(dst)) {
+        dst = path.join(targetDir, `${path.basename(newName, ext)}_${c}${ext}`);
+        c++;
+      }
+      fs.renameSync(src, dst);
+      result.invoices[invType].push({
+        original: item.filename, renamed: path.basename(dst), path: dst, source: src,
+        name, date, amount, type: invType,
        });
      } else if (item.category === 'document') {
        const dt = docTypeFromText(item.subcategory);
@@ -88,19 +89,45 @@
        const date = item.date || '';
        const targetDir = path.join(sessionDir, 'documents', dt);
        fs.mkdirSync(targetDir, { recursive: true });
-       let newName = genDocFilename(name, date, dt, ext);
+       // 通知、文件处理单及解析失败的材料保留原名，便于核对附件。
+       let newName = dt === '其他凭证'
+         ? sanitize(path.basename(item.filename))
+         : genDocFilename(name, date, dt, ext);
        let dst = path.join(targetDir, newName);
        let c = 1;
-       while (fs.existsSync(dst)) {
-         dst = path.join(targetDir, `${path.basename(newName, ext)}_${c}${ext}`);
-         c++;
-       }
-       fs.renameSync(src, dst);
-       result.documents[dt].push({
-         original: item.filename, renamed: path.basename(dst), path: dst,
-         name, date, type: dt,
+      while (fs.existsSync(dst)) {
+        dst = path.join(targetDir, `${path.basename(newName, ext)}_${c}${ext}`);
+        c++;
+      }
+      fs.renameSync(src, dst);
+      result.documents[dt].push({
+        original: item.filename, renamed: path.basename(dst), path: dst,
+        name, date, type: dt,
        });
      }
    }
    return result;
  }
+
+const INVOICE_DETAIL_FIELDS = ['check_in_date', 'check_out_date', 'lodging_days', 'stay_periods'];
+
+// 按原始文件路径把识别出的发票信息合并到整理后的文件上。不能按“同类第几张”对应：
+// 任一发票识别失败或类型判断不一致时，后续日期、金额、入住信息会整体错位。
+export function attachInvoiceDetails(
+  invoices: Record<string, any[]>,
+  detailsBySource: Map<string, any>,
+): void {
+  for (const items of Object.values(invoices)) {
+    for (const item of items) {
+      const extracted = detailsBySource.get(item.source);
+      delete item.source;
+      if (!extracted) continue;
+      if (extracted.name) item.name = extracted.name;
+      if (extracted.date) item.date = extracted.date;
+      if (extracted.amount) item.amount = extracted.amount;
+      for (const field of INVOICE_DETAIL_FIELDS) {
+        if (extracted[field] !== undefined && extracted[field] !== '') item[field] = extracted[field];
+      }
+    }
+  }
+}

@@ -1,154 +1,173 @@
- <!DOCTYPE html>
- <html lang="zh-CN">
- <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>报销自动化系统</title>
- <link rel="stylesheet" href="/static/styles.css">
- </head>
- <body>
- <div class="app-container">
- 
-   <header class="app-header">
-     <h1>报销自动化</h1>
-     <p>拖入发票和报销凭证，自动分类、提取信息并填写用友 BIP 报销单</p>
-   </header>
- 
-   <!-- 步骤指示器 -->
-   <div class="step-indicators">
-     <div class="step-dot active"></div>
-     <div class="step-dot"></div>
-     <div class="step-dot"></div>
-     <div class="step-dot"></div>
-   </div>
- 
-   <!-- === 上传区 === -->
-   <div class="card">
-     <div class="card-title">📎 选择文件</div>
-     <div class="dropzone" id="dropzone">
-       <div class="dropzone-icon">
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-           <polyline points="17 8 12 3 7 8"/>
-           <line x1="12" y1="3" x2="12" y2="15"/>
-         </svg>
-       </div>
-       <div class="dropzone-text">
-         将发票或报销凭证拖拽到这里，或 <strong>点击选择</strong>
-       </div>
-       <div class="dropzone-hint">支持 PDF、JPG、PNG 格式</div>
-       <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none">
-     </div>
-     <div class="file-list" id="file-list"></div>
-     <div class="actions">
-       <button class="btn btn-primary" id="upload-btn" disabled>
-         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-           <polyline points="17 1 21 5 17 9"/>
-           <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-           <polyline points="7 23 3 19 7 15"/>
-           <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-         </svg>
-         开始处理
-       </button>
-     </div>
-   </div>
- 
-   <!-- === 进度 === -->
-   <div class="card progress-section" id="progress-section">
-     <div class="card-title">⏳ 处理进度</div>
-     <div class="progress-bar-track">
-       <div class="progress-bar-fill" id="progress-fill"></div>
-     </div>
-     <div class="progress-message" id="progress-msg">正在处理...</div>
-   </div>
- 
-   <!-- === 确认 === -->
-   <div class="card confirm-section" id="confirm-section">
-     <div class="card-title">✅ 信息确认</div>
-     <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">
-       请核对以下提取的信息，如有误可点击修改，确认无误后点击"确认并开始填单"。
-     </p>
- 
-     <!-- 基本信息 -->
-     <div class="data-grid">
-       <div class="data-item">
-         <label>报销事由</label>
-         <div class="value editable" id="confirm-summary" data-value="包洋报销差旅费用" onclick="editField('confirm-summary')">包洋报销差旅费用</div>
-       </div>
-       <div class="data-item">
-         <label>出差人员</label>
-         <div class="value" id="confirm-travelers">—</div>
-       </div>
-       <div class="data-item">
-         <label>目的地</label>
-         <div class="value" id="confirm-destination">—</div>
-       </div>
-       <div class="data-item">
-         <label>出差日期</label>
-         <div class="value" id="confirm-dates">—</div>
-       </div>
-       <div class="data-item">
-         <label>出差事由</label>
-         <div class="value" id="confirm-purpose">—</div>
-       </div>
-     </div>
- 
-     <!-- 出差补助 -->
-     <div id="subsidy-section">
-       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">💰 出差补助</h4>
-       <table class="subsidy-table">
-         <thead>
-           <tr>
-             <th>姓名</th>
-             <th>天数</th>
-             <th>人数</th>
-             <th>伙食补助</th>
-             <th>交通补助</th>
-           </tr>
-         </thead>
-         <tbody id="subsidy-body"></tbody>
-         <tfoot>
-           <tr class="total-row">
-             <td colspan="3">合计</td>
-             <td id="subsidy-total-meal">¥0.00</td>
-             <td id="subsidy-total-transport">¥0.00</td>
-           </tr>
-           <tr class="total-row">
-             <td colspan="4" style="text-align:right;">补助总计</td>
-             <td id="subsidy-total-amount" style="font-size:16px;">¥0.00</td>
-           </tr>
-         </tfoot>
-       </table>
-     </div>
- 
-     <!-- 发票清单 -->
-     <div style="margin-top:16px;">
-       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">📄 发票清单</h4>
-       <div id="invoices-container">
-         <div class="empty-state"><p>正在加载...</p></div>
-       </div>
-     </div>
- 
-     <!-- 报销凭证 -->
-     <div style="margin-top:16px;">
-       <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">📋 报销凭证</h4>
-       <div id="documents-container">
-         <div class="empty-state"><p>正在加载...</p></div>
-       </div>
-     </div>
- 
-     <!-- 操作 -->
-     <div class="actions">
-       <button class="btn btn-success" onclick="confirmData()">
-         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-           <polyline points="20 6 9 17 4 12"/>
-         </svg>
-         确认并开始填单
-       </button>
-     </div>
-   </div>
- 
- </div>
- <script src="/static/app.js"></script>
- </body>
- </html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f8f5ef">
+<title>报销神器 · 可达鸭自动化</title>
+<link rel="icon" type="image/png" href="/static/kexin-background.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">跳到主内容</a>
+
+<div class="drag-overlay" id="drag-overlay" aria-hidden="true">
+  <div class="drag-pulse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+  <div class="drag-label">释放文件以上传</div>
+</div>
+
+<div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+
+<div class="shell">
+
+  <aside class="sidebar" aria-label="处理流程导航">
+    <div class="sidebar-brand">
+      <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="/static/psyduck-logo.png" alt="">
+        </span>
+        <div class="brand-copy">
+          <h1>报销神器</h1>
+          <div class="sub">可达鸭自动化</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-steps" aria-label="处理步骤">
+      <div class="section-label">处理流程</div>
+      <div class="sidebar-step active" data-step="0">
+        <span class="step-num" aria-hidden="true">1</span>
+        <div class="info">
+          <div class="step-title">上传文件</div>
+          <div class="step-desc">拖入发票与凭证</div>
+        </div>
+      </div>
+      <div class="sidebar-step" data-step="1">
+        <span class="step-num" aria-hidden="true">2</span>
+        <div class="info">
+          <div class="step-title">智能识别</div>
+          <div class="step-desc">AI 提取信息</div>
+        </div>
+      </div>
+      <div class="sidebar-step" data-step="2">
+        <span class="step-num" aria-hidden="true">3</span>
+        <div class="info">
+          <div class="step-title">核对信息</div>
+          <div class="step-desc">确认报销数据</div>
+        </div>
+      </div>
+      <div class="sidebar-step" data-step="3">
+        <span class="step-num" aria-hidden="true">4</span>
+        <div class="info">
+          <div class="step-title">自动填单</div>
+          <div class="step-desc">写入 BIP 系统</div>
+        </div>
+      </div>
+    </nav>
+
+    <section class="sidebar-files" aria-label="已选文件">
+      <div class="section-label">已选文件 <span id="file-count" class="count-badge">0</span></div>
+      <div id="sidebar-file-list">
+        <div class="sidebar-empty">暂无文件</div>
+      </div>
+    </section>
+
+    <div class="sidebar-status">
+      <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+      <span id="ws-status-text">connecting...</span>
+    </div>
+  </aside>
+
+  <main class="main" id="main-content" tabindex="-1">
+    <header class="main-topbar">
+      <div class="topbar-text">
+        <h2 class="phase-title" id="phase-title">上传文件</h2>
+        <p class="phase-sub">选择或拖入发票与报销凭证，系统会自动识别并整理</p>
+      </div>
+      <span class="phase-badge" id="phase-badge">STEP 1/4</span>
+    </header>
+
+    <div class="main-content">
+      <!-- 上传阶段 -->
+      <div class="upload-panel" id="upload-panel">
+        <div class="upload-card">
+          <button type="button" class="dropzone-big" id="dropzone">
+            <span class="dz-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </span>
+            <span class="dz-text">拖入发票或报销凭证 <strong>到任意位置</strong>，或点击这里选择</span>
+            <span class="dz-hint"><span class="hint-chip">PDF</span><span class="hint-chip">图片</span><span class="hint-chip">Ctrl+V 粘贴</span></span>
+          </button>
+          <input type="file" id="file-input" class="visually-hidden" multiple accept=".pdf,.jpg,.jpeg,.png,.webp">
+          <div class="upload-actions">
+            <button class="btn btn-primary" id="upload-btn" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+              <span>开始处理</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 处理阶段 -->
+      <div class="progress-panel" id="progress-panel">
+        <div class="progress-inner">
+          <div class="progress-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="progress-bar" id="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-text" id="progress-msg" aria-live="polite"><span class="pulse-dot" aria-hidden="true"></span> 正在处理...</div>
+          <div class="progress-meta">AI 正在识别文档内容</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 文件预览 -->
+<div class="preview-overlay" id="preview-overlay">
+  <div class="preview-modal" id="preview-modal" role="dialog" aria-modal="true" aria-label="文件预览">
+    <div class="preview-header">
+      <span class="preview-title" id="preview-title">文件预览</span>
+      <div class="preview-actions">
+        <span class="preview-count" id="preview-count"></span>
+        <button class="preview-btn" id="preview-prev" title="上一个" aria-label="上一个">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button class="preview-btn" id="preview-next" title="下一个" aria-label="下一个">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="preview-btn" id="preview-close" title="关闭" aria-label="关闭">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="preview-body" id="preview-body"></div>
+    <button class="preview-nav prev" id="preview-nav-prev" aria-label="上一个文件">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="preview-nav next" id="preview-nav-next" aria-label="下一个文件">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
