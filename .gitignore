@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -24,6 +24,7 @@ Thumbs.db
 
 # Project specific
 sessions/
+ready_uploads/
 uploaded_files/
 .env
 *.pkl
@@ -37,3 +38,26 @@ requirements.txt
 
 # Reference project
 browserAuto/
+browserAuto.rar
+
+# Fill config (local editable)
+fill-config.json
+/release/
+
+# Browser recordings (may contain credentials)
+recordings/
+
+# Local BIP investigation artifacts (may contain company or account data)
+/debug*.ts
+/debug*.png
+/patch*.cjs
+/rewrite*.cjs
+/test_*.ts
+/test_auto_work/
+
+# Local scratch, presentation and AI-tool files (not needed to run; may contain real reimbursement data)
+/tmp/
+/.workbuddy/
+/PPT成品/
+*.pptx
+/docs/项目运行信息填写表（交给AI配置）.docx
